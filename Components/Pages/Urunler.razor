@@ -1,0 +1,131 @@
+@page "/urunler"
+@rendermode InteractiveServer
+
+<div class="container mt-4" style="max-width: 1000px; font-family: sans-serif;">
+    <h2 class="text-center mb-4">🛒 Kurumsal ERP - Merkez Ürün Havuzu</h2>
+
+   
+    <div class="card p-4 mb-4 shadow-sm">
+        <h4 class="mb-3">➕ Havuza Yeni Ürün Tanımla</h4>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label text-muted small fw-bold mb-1">🔢 Ürün Barkodu</label>
+                <input type="text" class="form-control" placeholder="Örn: 8690001" @bind="BarkodInput" oninput="this.value = this.value.replace(/[^0-9]/g, '')" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label text-muted small fw-bold mb-1">📦 Ürün Adı</label>
+                <input type="text" class="form-control" placeholder="Örn: iPhone 16 Pro Max" @bind="UrunAdiInput" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label text-muted small fw-bold mb-1">🗂️ Kategori</label>
+                <select class="form-select" @bind="KategoriInput">
+                    <option value="Teknoloji">💻 Teknoloji / Elektronik</option>
+                    <option value="Gıda">🍏 Gıda / Hızlı Tüketim</option>
+                    <option value="Tekstil">👕 Tekstil / Giyim</option>
+                    <option value="Diğer">📦 Diğer</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label text-muted small fw-bold mb-1">💰 Satış Fiyatı (TL)</label>
+                <input type="number" class="form-control" @bind="FiyatInput" />
+            </div>
+            <div class="col-md-12 text-end">
+                <button class="btn btn-success px-5" @onclick="UrunKaydet">Ürünü Havuza Ekle</button>
+            </div>
+        </div>
+    </div>
+
+    
+    <div class="card p-4 shadow-sm">
+        <h4 class="mb-3">📜 Havuzdaki Tanımlı Ürünler (Veritabanı Canlı Verisi)</h4>
+        @if (UrunlerListesi.Count == 0)
+        {
+            <p class="text-muted text-center">Merkez ürün havuzunda henüz tanımlı bir ürün bulunmamaktadır.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Ürün ID</th>
+                            <th>🔢 Barkod</th>
+                            <th>📦 Ürün Adı</th>
+                            <th>🗂️ Kategori</th>
+                            <th>💰 Merkez Satış Fiyati</th>
+                            <th>Aksiyon</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var urun in UrunlerListesi)
+                        {
+                            <tr>
+                                <td class="fw-bold text-secondary">#@urun.Id</td>
+                                <td class="text-monospace">@urun.Barkod</td>
+                                <td class="fw-bold">@urun.UrunAdi</td>
+                                <td><span class="badge bg-secondary">@urun.Kategori</span></td>
+                                <td class="fw-bold text-dark">@urun.SatisFiyati.ToString("C2")</td>
+                                <td>
+                                    <button class="btn btn-sm btn-danger" @onclick="() => UrunSil(urun.Id)">❌ Havuzdan Sil</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<Urun> UrunlerListesi = new List<Urun>();
+
+   
+    private string BarkodInput { get; set; } = string.Empty;
+    private string UrunAdiInput { get; set; } = string.Empty;
+    private string KategoriInput { get; set; } = "Teknoloji";
+    private decimal FiyatInput { get; set; }
+
+    protected override void OnInitialized()
+    {
+        using var db = new ErpDbContext();
+        UrunlerListesi = db.Urunler.ToList();
+    }
+
+    private void UrunKaydet()
+    {
+        if (string.IsNullOrWhiteSpace(BarkodInput) || string.IsNullOrWhiteSpace(UrunAdiInput) || FiyatInput <= 0) return;
+
+        using var db = new ErpDbContext();
+
+        var yeniUrun = new Urun
+        {
+            Barkod = BarkodInput,
+            UrunAdi = UrunAdiInput,
+            Kategori = KategoriInput,
+            SatisFiyati = FiyatInput
+        };
+
+        db.Urunler.Add(yeniUrun);
+        db.SaveChanges(); 
+
+      
+        UrunlerListesi = db.Urunler.ToList();
+        BarkodInput = string.Empty;
+        UrunAdiInput = string.Empty;
+        FiyatInput = 0;
+    }
+
+    private void UrunSil(int id)
+    {
+        using var db = new ErpDbContext();
+        var silinecek = db.Urunler.FirstOrDefault(u => u.Id == id);
+
+        if (silinecek != null)
+        {
+            db.Urunler.Remove(silinecek);
+            db.SaveChanges(); 
+            UrunlerListesi = db.Urunler.ToList();
+        }
+    }
+}

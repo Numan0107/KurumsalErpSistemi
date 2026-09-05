@@ -1,0 +1,206 @@
+﻿@page "/"
+@rendermode InteractiveServer
+
+<div class="container mt-4" style="max-width: 1000px; font-family: sans-serif;">
+    <h2 class="text-center mb-4">🏢 Kurumsal ERP - Çoklu Mağaza Yönetim Paneli</h2>
+
+    <div class="row text-center mb-4">
+        <div class="col-md-4">
+            <div class="p-3 bg-light border rounded shadow-sm">
+                <h5>🏬 Toplam Aktif Şube</h5>
+                <h3 class="text-primary">@Subeler.Count</h3>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="p-3 bg-light border rounded shadow-sm">
+                <h5>📦 Toplam Ürün Çeşidi</h5>
+                <h3 class="text-success">@UrunCesitSayisi</h3>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="p-3 bg-dark text-white border rounded shadow-sm">
+                <h5>🔄 Toplam Stok Hareketi</h5>
+                <h3 class="text-info">@ToplamStokHareketi</h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-4 mb-4 shadow-sm">
+        <h4 class="mb-3">➕ Yeni Holding Şubesi Ekle</h4>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label text-muted small fw-bold mb-1">🏪 Şube Adı</label>
+                <input type="text" class="form-control" placeholder="Örn: Kadıköy Merkez" @bind="SubeAdiInput" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label text-muted small fw-bold mb-1">📍 Şehir</label>
+                <input type="text" class="form-control" placeholder="Örn: İstanbul" @bind="SehirInput" oninput="this.value = this.value.replace(/[^a-zA-ZçÇğĞıİöÖşŞüÜ ]/g, '')" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label text-muted small fw-bold mb-1">👔 Yetkili Şube Müdürü</label>
+                <input type="text" class="form-control" placeholder="Örn: Ahmet Yılmaz" @bind="MudurInput" oninput="this.value = this.value.replace(/[^a-zA-ZçÇğĞıİöÖşŞüÜ ]/g, '')" />
+            </div>
+            <div class="col-md-12 text-end">
+                <button class="btn btn-primary px-5" @onclick="SubeKaydet">Şubeyi Resmi Olarak Aç</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-4 mb-4 shadow-sm">
+        <h4 class="mb-3">📜 Sistemde Kayıtlı Şubeler</h4>
+        @if (Subeler.Count == 0)
+        {
+            <p class="text-muted text-center">Sisteme henüz tanımlanmış bir holding şubesi bulunmamaktadır.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Şube ID</th>
+                            <th>🏪 Şube Adı</th>
+                            <th>📍 Lokasyon / Şehir</th>
+                            <th>👔 Sorumlu Müdür</th>
+                            <th>Aksiyon</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var sube in Subeler)
+                        {
+                            <tr>
+                                <td class="fw-bold text-secondary">#@sube.Id</td>
+                                <td class="fw-bold">@sube.SubeAdi</td>
+                                <td><span class="badge bg-info text-dark">@sube.Sehir</span></td>
+                                <td>@sube.YetkiliMudur</td>
+                                <td>
+                                    <button class="btn btn-sm btn-danger" @onclick="() => SubeSil(sube.Id)">❌ Şubeyi Kapat</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+    <div class="card p-4 shadow-sm">
+        <h4 class="mb-3">📊 Şube Bazlı Güncel Stok Envanteri Raporu</h4>
+        @if (StokDurumlariListesi.Count == 0)
+        {
+            <p class="text-muted text-center">Şubelerde henüz bir ürün stoku bulunmamaktadır. Stok Yönetimi sayfasından transfer yapın.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-striped align-middle">
+                    <thead class="table-secondary">
+                        <tr>
+                            <th>🏪 Şube Adı</th>
+                            <th>📦 Ürün Adı</th>
+                            <th>🔢 Net Stok Miktarı</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var stok in StokDurumlariListesi)
+                        {
+                            <tr>
+                                <td class="fw-bold">@stok.SubeAdi</td>
+                                <td>@stok.UrunAdi</td>
+                                <td>
+                                    <span class="badge @(stok.Miktar > 5 ? "bg-success" : "bg-danger")" style="font-size: 14px;">
+                                        @stok.Miktar Adet
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<Sube> Subeler = new List<Sube>();
+    private int UrunCesitSayisi { get; set; }
+    private int ToplamStokHareketi { get; set; }
+    private List<StokOzeti> StokDurumlariListesi = new List<StokOzeti>();
+
+    private string SubeAdiInput { get; set; } = string.Empty;
+    private string SehirInput { get; set; } = "İstanbul";
+    private string MudurInput { get; set; } = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        VerileriYukle();
+    }
+
+        private void VerileriYukle()
+    {
+        using var db = new ErpDbContext();
+        Subeler = db.Subeler.ToList();
+        UrunCesitSayisi = db.Urunler.Count();
+        
+        var hareketler = db.StokHareketleri.ToList();
+        ToplamStokHareketi = hareketler.Count;
+
+        var urunler = db.Urunler.ToList();
+
+        StokDurumlariListesi = hareketler
+            .GroupBy(h => new { h.SubeId, h.UrunId })
+            .Select(g => {
+                var sube = Subeler.FirstOrDefault(s => s.Id == g.Key.SubeId);
+                var urun = urunler.FirstOrDefault(u => u.Id == g.Key.UrunId);
+                return new StokOzeti
+                {
+                    SubeAdi = sube?.SubeAdi ?? string.Empty,
+                    UrunAdi = urun?.UrunAdi ?? string.Empty,
+                    Miktar = g.Sum(h => h.AdetDeğisimi)
+                };
+            })
+            .Where(s => s.Miktar != 0 && !string.IsNullOrEmpty(s.SubeAdi) && !string.IsNullOrEmpty(s.UrunAdi))
+            .ToList();
+    }
+
+    private void SubeKaydet()
+    {
+        if (string.IsNullOrWhiteSpace(SubeAdiInput) || string.IsNullOrWhiteSpace(MudurInput)) return;
+
+        using var db = new ErpDbContext();
+        
+        var yeniSube = new Sube
+        {
+            SubeAdi = SubeAdiInput,
+            Sehir = SehirInput,
+            YetkiliMudur = MudurInput
+        };
+
+        db.Subeler.Add(yeniSube);
+        db.SaveChanges();
+
+        VerileriYukle();
+        SubeAdiInput = string.Empty;
+        MudurInput = string.Empty;
+    }
+
+    private void SubeSil(int id)
+    {
+        using var db = new ErpDbContext();
+        var silinecek = db.Subeler.FirstOrDefault(s => s.Id == id);
+        
+        if (silinecek != null)
+        {
+            db.Subeler.Remove(silinecek);
+            db.SaveChanges();
+            VerileriYukle();
+        }
+    }
+
+    public class StokOzeti
+    {
+        public string SubeAdi { get; set; } = string.Empty;
+        public string UrunAdi { get; set; } = string.Empty;
+        public int Miktar { get; set; }
+    }
+}

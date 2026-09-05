@@ -1,0 +1,138 @@
+@page "/stok"
+@rendermode InteractiveServer
+
+<div class="container mt-4" style="max-width: 1000px; font-family: sans-serif;">
+    <h2 class="text-center mb-4">🔄 Kurumsal ERP - Stok Transfer ve Hareket Merkezi</h2>
+
+    <div class="card p-4 mb-4 shadow-sm">
+        <h4 class="mb-3">📦 Şubeye Stok Gönder / Transfer Et</h4>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label text-muted small fw-bold mb-1">🛒 Transfer Edilecek Ürün</label>
+                <select class="form-select" @bind="SecilenUrunId">
+                    <option value="0">-- Ürün Seçin --</option>
+                    @foreach (var urun in UrunlerListesi)
+                    {
+                        <option value="@urun.Id">@urun.UrunAdi (Barkod: @urun.Barkod)</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label text-muted small fw-bold mb-1">🏢 Hedef Şube</label>
+                <select class="form-select" @bind="SecilenSubeId">
+                    <option value="0">-- Şube Seçin --</option>
+                    @foreach (var sube in SubelerListesi)
+                    {
+                        <option value="@sube.Id">@sube.SubeAdi (@sube.Sehir)</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label text-muted small fw-bold mb-1">🔢 Gönderilecek Adet</label>
+                <input type="number" class="form-control" @bind="TransferAdet" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label text-muted small fw-bold mb-1">⚙️ İşlem Türü</label>
+                <select class="form-select" @bind="SecilenHareketTuru">
+                    <option value="Giriş">🟢 Stok Girişi (Merkezden)</option>
+                    <option value="Satış">📉 Şube İçi Satış</option>
+                </select>
+            </div>
+            <div class="col-md-12 text-end">
+                <button class="btn btn-primary px-5" @onclick="StokHareketiIsle">Transferi Gerçekleştir</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-4 shadow-sm">
+        <h4 class="mb-3">📜 Kalıcı Stok Hareket Logları (Tüm Geçmiş)</h4>
+        @if (HareketlerListesi.Count == 0)
+        {
+            <p class="text-muted text-center">Sistemde henüz bir stok hareketi gerçekleşmemiştir.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-striped align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>İşlem ID</th>
+                            <th>📦 Ürün</th>
+                            <th>🏢 Şube</th>
+                            <th>🔢 Adet Değişimi</th>
+                            <th>⚙️ İşlem Türü</th>
+                            <th>📅 Tarih</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var hareket in HareketlerListesi.OrderByDescending(h => h.IslemTarihi))
+                        {
+                            var urun = UrunlerListesi.FirstOrDefault(u => u.Id == hareket.UrunId);
+                            var sube = SubelerListesi.FirstOrDefault(s => s.Id == hareket.SubeId);
+                            <tr>
+                                <td class="fw-bold text-secondary">#@hareket.Id</td>
+                                <td class="fw-bold">@(urun?.UrunAdi ?? "Bilinmeyen Ürün")</td>
+                                <td>@(sube?.SubeAdi ?? "Bilinmeyen Şube")</td>
+                                <td class="fw-bold @(hareket.AdetDeğisimi >= 0 ? "text-success" : "text-danger")">
+                                    @(hareket.AdetDeğisimi >= 0 ? $"+{hareket.AdetDeğisimi}" : hareket.AdetDeğisimi.ToString())
+                                </td>
+                                <td>
+                                    <span class="badge @(hareket.HareketTuru == "Giriş" ? "bg-success" : "bg-warning text-dark")">
+                                        @hareket.HareketTuru
+                                    </span>
+                                </td>
+                                <td class="text-muted small">@hareket.IslemTarihi.ToString("dd.MM.yyyy HH:mm")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<Urun> UrunlerListesi = new List<Urun>();
+    private List<Sube> SubelerListesi = new List<Sube>();
+    private List<StokHareket> HareketlerListesi = new List<StokHareket>();
+
+    private int SecilenUrunId { get; set; }
+    private int SecilenSubeId { get; set; }
+    private int TransferAdet { get; set; }
+    private string SecilenHareketTuru { get; set; } = "Giriş";
+
+    protected override void OnInitialized()
+    {
+        using var db = new ErpDbContext();
+        UrunlerListesi = db.Urunler.ToList();
+        SubelerListesi = db.Subeler.ToList();
+        HareketlerListesi = db.StokHareketleri.ToList();
+    }
+
+    private void StokHareketiIsle()
+    {
+        if (SecilenUrunId <= 0 || SecilenSubeId <= 0 || TransferAdet <= 0) return;
+
+        using var db = new ErpDbContext();
+
+        int nihaiAdet = SecilenHareketTuru == "Satış" ? -TransferAdet : TransferAdet;
+
+        var yeniHareket = new StokHareket
+        {
+            UrunId = SecilenUrunId,
+            SubeId = SecilenSubeId,
+            AdetDeğisimi = nihaiAdet,
+            HareketTuru = SecilenHareketTuru,
+            IslemTarihi = DateTime.Now
+        };
+
+        db.StokHareketleri.Add(yeniHareket);
+        db.SaveChanges();
+
+        HareketlerListesi = db.StokHareketleri.ToList();
+        
+        SecilenUrunId = 0;
+        SecilenSubeId = 0;
+        TransferAdet = 0;
+    }
+}
